@@ -1,65 +1,29 @@
-<p align="center"><img src="https://laravel.com/assets/img/components/logo-laravel.svg"></p>
+1. Lo primero, es que, nos creemos nuestro propio proyecto, ya que a mi, por lo menos, no me gusta tener que meter en el composer de laravel referencias de otros proyectos ya que esto no me ayuda a comprender que está haciendo el código, por eso, creamos nuestro proyecto y después copiamos la carpeta “Circuit” dentro de la carpeta de la aplicación “App”. Para crear el proyecto, debemos de utilizar la versión 5.6 de laravel, ya que en versiones superiores no esta probado y puede que no funcione correctamente.
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/d/total.svg" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/license.svg" alt="License"></a>
-</p>
+composer create-project — prefer-dist laravel/laravel=”5.6.*” operations
 
-## About Laravel
+2. Una vez tenemos el proyecto creado y la carpeta copiada, meteremos la referencia a esta carpeta para que el service provider de laravel nos genere las referencias necesarias a las clases. Vamos a la clase situada en “config/app.php” en la parte de abajo donde ser registran los providers insertamos esta línea.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel attempts to take the pain out of development by easing common tasks used in the majority of web projects, such as:
+App\Circuit\Provider\CircuitBreakerServiceProvider::class,
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
-Laravel is accessible, yet powerful, providing tools needed for large, robust applications.
+3. Con esto ya hecho, en la carpeta “config“ del proyecto, creamos una clase de configuración la cual llamaremos “circuit_breaker.php”. Esta clase es muy importante ya que contiene la configuración de los tiempos de espera y los intentos que va a manejar el circuito.
 
-## Learning Laravel
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of any modern web application framework, making it a breeze to get started learning the framework.
+La clave “defaults” contiene los valores por defecto que asignamos al circuito, la clave “services” contiene cada uno de nuestros servicios de forma independiente de manera que podemos tener varios servicios con intentos de fallo y tiempos de corte diferentes. Los valores a tener en cuenta son los siguientes :
 
-If you're not in the mood to read, [Laracasts](https://laracasts.com) contains over 1100 video tutorials on a range of topics including Laravel, modern PHP, unit testing, JavaScript, and more. Boost the skill level of yourself and your entire team by digging into our comprehensive video library.
+attempts_threshold : En esta clave, especificamos cuantos intentos se tienen que hacer antes de abrir el circuito y declarar que el servicio a fallado.
 
-## Laravel Sponsors
+attempts_ttl : En esta clave, especificamos la ventana de tiempo (en minutos) en la que estamos validando la acción y realizando los intentos antes de declarar que el servicio a fallado.
 
-We would like to extend our thanks to the following sponsors for helping fund on-going Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell):
+failure_ttl : En esta clase, especificamos el tiempo que permanecerá el servicio abierto y fuera de actividad. Hay que tener en cuenta que aunque el servicio se restablezca si el tiempo que hemos definido aquí no ha transcurrido no se volverá a cerrar el circuito.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[British Software Development](https://www.britishsoftware.co)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- [UserInsights](https://userinsights.com)
-- [Fragrantica](https://www.fragrantica.com)
-- [SOFTonSOFA](https://softonsofa.com/)
-- [User10](https://user10.com)
-- [Soumettre.fr](https://soumettre.fr/)
-- [CodeBrisk](https://codebrisk.com)
-- [1Forge](https://1forge.com)
-- [TECPRESSO](https://tecpresso.co.jp/)
-- [Runtime Converter](http://runtimeconverter.com/)
-- [WebL'Agence](https://weblagence.com/)
-- [Invoice Ninja](https://www.invoiceninja.com)
-- [iMi digital](https://www.imi-digital.de/)
-- [Earthlink](https://www.earthlink.ro/)
-- [Steadfast Collective](https://steadfastcollective.com/)
+4. Esto es todo lo que necesitamos para tener listo nuestro circuito, ahora solamente falta probarlo, podemos crear un controlador, una ruta api, y poner este simple código con el que podemos manejar para abrir y cerrar el circuito.
 
-## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+El funcionamiento es muy sencillo, utilizamos el patrón haciendo uso de la clase que implementa una fachada, con esto evitamos tener que acoplarnos a la implementación del patrón y poder ampliar en cualquier momento.
 
-## Security Vulnerabilities
+Seguidamente, en cada uno de nuestros procesos que queramos controlar preguntamos si el circuito está disponible (1), en el caso de que anteriormente se hubiera generado un error, el circuito se encontrara abierto (4) por lo que no se ejecutara nada de código. En caso de que el circuito esté disponible se realizaran las acciones necesarias, si se genera error (2) marcamos el circuito con error y terminamos la acción. Si la acción es correcta marcamos el suceso como correcto (3).
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Con este ejemplo podemos ver como un simple patrón nos ayuda a dormir tranquilos y no preocuparnos si un sistema ajeno a nosotros falla, controlar aquellas excepciones que hacen que se rompa el sistema y meter tiempos de espera para no saturar procesos que están caídos. En definitiva, un patrón muy interesante que tiene muchas aplicaciones.
